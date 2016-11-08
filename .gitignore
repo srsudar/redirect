@@ -1,0 +1,9 @@
+node_modules
+temp
+.tmp
+.sass-cache
+package
+
+# OSX
+.DS_STORE
+

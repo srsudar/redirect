@@ -1,4 +1,128 @@
-/* global console, localStorage */
+require=(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+/* globals Promise, chrome */
+'use strict';
+
+/**
+ * This module provides a wrapper around the chrome.storage.local API and
+ * provides an alternative based on Promises.
+ */
+
+/**
+ * @param {boolean} useSync
+ *
+ * @return {StorageArea} chrome.storage.sync or chrome.storage.local depending
+ * on the value of useSync
+ */
+function getStorageArea(useSync) {
+  if (useSync) {
+    return chrome.storage.sync;
+  } else {
+    return chrome.storage.local;
+  }
+}
+
+/**
+ * @param {string|Array<string>} keyOrKeys
+ * @param {boolean} useSync true to use chrome.storage.sync, otherwise will use
+ * chrome.storage.local
+ *
+ * @return {Promise} Promise that resolves with an object of key value mappings
+ */
+exports.get = function(keyOrKeys, useSync) {
+  var storageArea = getStorageArea(useSync);
+  return new Promise(function(resolve) {
+    storageArea.get(keyOrKeys, function(items) {
+      resolve(items);
+    });
+  });
+};
+
+/**
+ * @param {string|Array<string>} keyOrKeys
+ * @param {boolean} useSync true to use chrome.storage.sync, otherwise will use
+ * chrome.storage.local
+ *
+ * @return {Promise} Promise that resolves with an integer of the number of
+ * bytes in use for the given key or keys
+ */
+exports.getBytesInUse = function(keyOrKeys, useSync) {
+  var storageArea = getStorageArea(useSync);
+  return new Promise(function(resolve) {
+    storageArea.getBytesInUse(keyOrKeys, function(numBytes) {
+      resolve(numBytes);
+    });
+  });
+};
+
+/**
+ * @param {object} items an object of key value mappings
+ * @param {boolean} useSync true to use chrome.storage.sync, otherwise will use
+ * chrome.storage.local
+ *
+ * @return {Promise} Promise that resolves when the operation completes
+ */
+exports.set = function(items, useSync) {
+  var storageArea = getStorageArea(useSync);
+  return new Promise(function(resolve) {
+    storageArea.set(items, function() {
+      resolve();
+    });
+  });
+};
+
+/**
+ * @param {string|Array<string>} keyOrKeys
+ * @param {boolean} useSync true to use chrome.storage.sync, otherwise will use
+ * chrome.storage.local
+ *
+ * @return {Promise} Promise that resolves when the operation completes
+ */
+exports.remove = function(keyOrKeys, useSync) {
+  var storageArea = getStorageArea(useSync);
+  return new Promise(function(resolve) {
+    storageArea.remove(keyOrKeys, function() {
+      resolve();
+    });
+  });
+};
+
+/**
+ * @param {boolean} useSync true to use chrome.storage.sync, otherwise will use
+ * chrome.storage.local
+ *
+ * @return {Promise} Promise that resolves when the operation completes
+ */
+exports.clear = function(useSync) {
+  var storageArea = getStorageArea(useSync);
+  return new Promise(function(resolve) {
+    storageArea.clear(function() {
+      resolve();
+    });
+  });
+};
+
+},{}],2:[function(require,module,exports){
+/* global chrome */
+'use strict';
+
+/**
+ * Promise-ified wrappers around the chrome.tabs API.
+ */
+
+exports.query = function(queryArg) {
+  return new Promise(function(resolve) {
+    chrome.tabs.query(queryArg, function(tab) {
+      resolve(tab);
+    });
+  });
+};
+
+exports.create = function(createArg) {
+  chrome.tabs.create(createArg);
+};
+
+},{}],"common":[function(require,module,exports){
+/* global console, chrome, localStorage */
 'use strict';
 
 var chromeStorage = require('./chrome-apis/storage');
@@ -35,16 +159,12 @@ exports.isValidKey = function(str){
  * Save the redirect. It is the caller's responsibility to ensure that the
  * key is valid and safe for storage.
  *
- * @param {String} redirect the user-provided label. Should have been validated
- * as legal
- * @param {String} targetUrl the URL the redirect points to
- *
  * @return {Promise} Promise that resolves when the write completes
  */
-exports.saveRedirect = function(redirect, targetUrl) {
+exports.saveRedirect = function(key, value) {
   var keyValue = {};
-  keyValue[redirect] = targetUrl;
-  return chromeStorage.set(keyValue);
+  keyValue[key] = value;
+  return chrome.set(keyValue);
 };
 
 /**
@@ -208,3 +328,5 @@ function upgrade() {
 // Every time this script is loaded, attempt an upgrade.
 // TODO: move this to a more appropriate place
 upgrade();
+
+},{"./chrome-apis/storage":1,"./chrome-apis/tabs":2}]},{},[]);

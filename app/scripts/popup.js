@@ -1,38 +1,8 @@
-/* global document, console, chrome, setTimeout, window */
+/* global document, setTimeout, window */
 'use strict';
 
-// This script is called when the user creates a new redirect.
-// It maps the user-given key to a redirect. 
-var currentTab;
-
-var commonFunctions = window.commonFunctions;
-
-// Called when a user wants to save a key as a redirect to the currently open tab.
-// If the key is not undefined or empty, it is saved.
-var saveData = function saveData() {
-    var given_key = document.getElementById("inputval").value;
-    if (commonFunctions.keyExists(given_key)) { 
-    
-    } else {
-      if (!commonFunctions.isValidKey(given_key)) {
-        commonFunctions.alertIsInvalidKey();
-        return;
-      }
-      commonFunctions.saveRedirect(given_key, currentTab);
-    }
-};
-
-// Updates the variable that keeps track of the current tab.
-chrome.tabs.getSelected(null, function(tab) {
-    currentTab = tab.url;
-});
-
-// Opens the settings page.
-var openSettings = function() {
-  chrome.tabs.create({
-    url: 'settings.html'
-  });
-};
+var common = require('./common');
+var commonUi = require('./common-ui');
 
 /** 
  * Called after all Redirects are examined. Prints a message if no Redirects
@@ -40,7 +10,7 @@ var openSettings = function() {
  */ 
 var showMsg = function showMsg(hasKeys) { 
   if (!hasKeys) { 
-    var messg = "No Redirects created for this url.";
+    var messg = 'No Redirects created for this url.';
     document.getElementById('userMessage').innerHTML = messg;
   }
 };
@@ -50,31 +20,37 @@ var showMsg = function showMsg(hasKeys) {
   * displays them in an unordered list. 
   */
 var checkPreviousRedirects= function checkPreviousRedirects() { 
-  var hasKeys = false;
   var ul = document.getElementById('currentRedirects');
   
-  chrome.storage.sync.get(null, function(items) {
-    for (var key in items) {
-      // check hasOwnProperty to make sure it's a key and doesn't come from the
-      // prototype
-      if (items.hasOwnProperty(key) && !commonFunctions.isPrivateKey(key)) {
-        if (currentTab === items[key]) {
-          var msg = "Redirects for this url:";
-          document.getElementById('usermessage').innerhtml = msg;
-
-          hasKeys = true;
-          var elem = document.createElement("li");
-          elem.innerHTML = key;
-          ul.appendChild(elem);
-        }
-      }
+  common.getUrlOfCurrentTab()
+  .then(url => {
+    return common.getExistingRedirects(url);
+  })
+  .then(redirectArr => {
+    if (redirectArr.length === 0) {
+      showMsg(false);
+    } else {
+      var msg = 'Redirects for this url:';
+      document.getElementById('usermessage').innerhtml = msg;
+      redirectArr.forEach(redirect => {
+        var elem = document.createElement('li');
+        elem.innerHTML = redirect;
+        ul.appendChild(elem);
+      });
+      showMsg(true);
     }
-    showMsg(hasKeys);
   });
 };
 
-document.querySelector('#submit').addEventListener('click', saveData);
-document.querySelector('#settings').addEventListener('click', openSettings);
+document.querySelector('#submit').addEventListener(
+  'click',
+  commonUi.validateAndSaveRedirect
+);
+
+document.querySelector('#settings').addEventListener(
+  'click',
+  commonUi.openSettings
+);
 
 // Focus on the text box for immediate typing. We have to set a timeout because
 // without one the focus change doesn't take. It seems like this is because the
@@ -87,4 +63,4 @@ setTimeout(function foo() {
 // Displays previously created redirects
 window.onload = function() {
   checkPreviousRedirects();
-}
+};

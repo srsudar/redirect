@@ -10,7 +10,7 @@ var tabs = require('./chrome-apis/tabs');
 // important to note the leading underscore, which prevents collisions with
 // user-defined redirects (at least as of alphanumeric checking introduced in
 // 1.1.0).
-var VERSION_KEY = '_version';
+exports.VERSION_KEY = '_version';
 
 // A string representing the current version. Should be incremented with each
 // release.
@@ -68,19 +68,17 @@ exports.removeRedirect = function(redirect) {
  * 1) Success and an existing version (version_string)
  * 2) Success and no prior existing version (null)
  * --This will only occur when upgrading from 1.0.2
- * 3) Error (-1, error_msg)
- * --The error warning is defined by ERROR_FLAG, and in this example is -1
  *
  * @return {Promise} Promise that resolves with the saved value or null if no
  * value is present
  */
 exports.getSavedVersion = function() {
   return new Promise(function(resolve) {
-    chromeStorage.get(VERSION_KEY)
+    chromeStorage.get(exports.VERSION_KEY)
     .then(items => {
-      if (items.hasOwnProperty(VERSION_KEY)) {
+      if (items.hasOwnProperty(exports.VERSION_KEY)) {
         // We have a previous version saved.
-        resolve(items[VERSION_KEY]);
+        resolve(items[exports.VERSION_KEY]);
       } else {
         // No previous version was saved in storage.
         resolve(null);
@@ -116,7 +114,7 @@ exports.getCurrentTab = function() {
       if (tabs.length > 0) {
         resolve(tabs[0]);
       } else {
-        reject('No active tab');
+        reject({ msg: 'No active tab' });
       }
     });
   });
@@ -207,4 +205,4 @@ function upgrade() {
 
 // Every time this script is loaded, attempt an upgrade.
 // TODO: move this to a more appropriate place
-upgrade();
+// upgrade();

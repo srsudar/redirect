@@ -13,7 +13,7 @@
   "default_locale": "en",
   "background": {
     "scripts": [
-      "scripts/background.js"
+      "scripts/backgroundBundle.js"
     ]
   },
   "browser_action": {

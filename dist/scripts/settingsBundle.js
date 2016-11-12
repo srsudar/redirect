@@ -127,9 +127,9 @@ exports.create = function(createArg) {
 var common = require('./common');
 var tabs = require('./chrome-apis/tabs');
 
-var MSG_SAVE_FAIL = 'Your direct was not saved: ';
-var MSG_SAVE_SUCCESS = 'Your redirect was created!<br>';
-var MSG_BAD_KEY = 'Redirects must be alphanumeric.';
+exports.MSG_SAVE_FAIL = 'Your direct was not saved: ';
+exports.MSG_SAVE_SUCCESS = 'Your redirect was created!<br>';
+exports.MSG_BAD_KEY = 'Redirects must be alphanumeric.';
 
 /**
  * The ID of the element that into which the user inputs a direct label. This
@@ -147,25 +147,75 @@ exports.getRedirectLabelFromUi = function() {
     return result;
 };
 
+exports.alertRedirectExists = function(redirect) {
+  // TODO
+};
+
 /**
- * Validates that the redirect can be saved and saves the redirect, updating
- * the UI with the appropriate message.
+ * Validates that the redirect is not illegal and saves the redirect. Unlike
+ * validateAndSaveRedirect(), this function saves even if an existing redirect
+ * will be overwritten.
  *
  * @param {String} redirect
+ * @param {String} url
+ *
+ * @return {Promise} Promise that resolves when the operation completes
  */
-exports.validateAndSaveRedirect = function(redirect) {
-    if (common.keyExists(redirect)) { 
-      // TODO: somehthing here?    
-    } else {
-      if (!common.isValidKey(redirect)) {
-        exports.alertIsInvalidKey();
-        return;
-      }
-      common.getUrlOfCurrentTab()
-      .then(url => {
-        common.saveRedirect(redirect, url);
-      });
+exports.saveRedirectWithOverwrite = function(redirect, url) {
+  return new Promise(function(resolve) {
+    if (!common.isValidKey(redirect)) {
+      exports.alertIsInvalidKey();
+      resolve();
+      return;
     }
+    // Since we're allowing overwrites, just save it straight away.
+    common.saveRedirect(redirect, url)
+    .then(() => {
+      resolve();
+    });
+  });
+};
+
+/**
+ * Validates that the redirect can be saved and saves the redirect, updating
+ * the UI with the appropriate message. This is the main entrypoint into saving
+ * a redirect. It essentially follows this logic:
+ * 
+ * Is this a valid key? If not, alert saying invalid key.
+ *
+ * Does a redirect exist for this key? If so, alert saying are you sure you
+ * want to overwrite?
+ *
+ * If the previous two checks pass, save the redirect.
+ *
+ * @param {String} redirect
+ * @param {String} url
+ *
+ * @return {Promise} Promise that resolves when the method completes
+ */
+exports.validateAndSaveRedirect = function(redirect, url) {
+  return new Promise(function(resolve) {
+    // Is this a valid redirect?
+    if (!common.isValidKey(redirect)) {
+      exports.alertIsInvalidKey();
+      resolve();
+      return;
+    }
+    // Will this overwrite an existing key?
+    common.redirectExists(redirect)
+    .then(exists => {
+      if (exists) {
+        exports.alertRedirectExists(redirect);
+        resolve();
+        return;
+      } else {
+        return common.saveRedirect(redirect, url);
+      }
+    })
+    .then(() => {
+      resolve();
+    });
+  });
 };
 
 /**
@@ -193,15 +243,15 @@ exports.setMessage = function(msg) {
 };
 
 exports.alertIsInvalidKey = function() {
-  exports.setMessage(MSG_BAD_KEY);
+  exports.setMessage(exports.MSG_BAD_KEY);
 };
 
 exports.setSaveMessageSuccess = function(key, value) {
-  exports.setMessage(MSG_SAVE_SUCCESS + key + ' → ' + value);
+  exports.setMessage(exports.MSG_SAVE_SUCCESS + key + ' → ' + value);
 };
 
 exports.setSaveMessageError = function(error) {
-  exports.setMessage(MSG_SAVE_FAIL + error);
+  exports.setMessage(exports.MSG_SAVE_FAIL + error);
 };
 
 },{"./chrome-apis/tabs":2,"./common":"common"}],4:[function(require,module,exports){
@@ -303,7 +353,7 @@ window.onload = function() {
 document.getElementById('new').onclick = createRedirect;
 
 },{"./chrome-apis/storage":1,"./common":"common","./common-ui":3}],"common":[function(require,module,exports){
-/* global console, chrome, localStorage */
+/* global console, localStorage */
 'use strict';
 
 var chromeStorage = require('./chrome-apis/storage');
@@ -315,7 +365,7 @@ var tabs = require('./chrome-apis/tabs');
 // important to note the leading underscore, which prevents collisions with
 // user-defined redirects (at least as of alphanumeric checking introduced in
 // 1.1.0).
-var VERSION_KEY = '_version';
+exports.VERSION_KEY = '_version';
 
 // A string representing the current version. Should be incremented with each
 // release.
@@ -340,12 +390,16 @@ exports.isValidKey = function(str){
  * Save the redirect. It is the caller's responsibility to ensure that the
  * key is valid and safe for storage.
  *
+ * @param {String} redirect the user-provided label. Should have been validated
+ * as legal
+ * @param {String} targetUrl the URL the redirect points to
+ *
  * @return {Promise} Promise that resolves when the write completes
  */
-exports.saveRedirect = function(key, value) {
+exports.saveRedirect = function(redirect, targetUrl) {
   var keyValue = {};
-  keyValue[key] = value;
-  return chrome.set(keyValue);
+  keyValue[redirect] = targetUrl;
+  return chromeStorage.set(keyValue);
 };
 
 /**
@@ -369,19 +423,17 @@ exports.removeRedirect = function(redirect) {
  * 1) Success and an existing version (version_string)
  * 2) Success and no prior existing version (null)
  * --This will only occur when upgrading from 1.0.2
- * 3) Error (-1, error_msg)
- * --The error warning is defined by ERROR_FLAG, and in this example is -1
  *
  * @return {Promise} Promise that resolves with the saved value or null if no
  * value is present
  */
 exports.getSavedVersion = function() {
   return new Promise(function(resolve) {
-    chromeStorage.get(VERSION_KEY)
+    chromeStorage.get(exports.VERSION_KEY)
     .then(items => {
-      if (items.hasOwnProperty(VERSION_KEY)) {
+      if (items.hasOwnProperty(exports.VERSION_KEY)) {
         // We have a previous version saved.
-        resolve(items[VERSION_KEY]);
+        resolve(items[exports.VERSION_KEY]);
       } else {
         // No previous version was saved in storage.
         resolve(null);
@@ -417,7 +469,7 @@ exports.getCurrentTab = function() {
       if (tabs.length > 0) {
         resolve(tabs[0]);
       } else {
-        reject('No active tab');
+        reject({ msg: 'No active tab' });
       }
     });
   });
@@ -433,6 +485,48 @@ exports.getUrlOfCurrentTab = function () {
     exports.getCurrentTab()
     .then(tab => {
       resolve(tab.url);
+    });
+  });
+};
+
+/**
+ * Gets the URL matching the given redirect.
+ *
+ * @param {String} redirect
+ *
+ * @return {Promise} Promise that resolves with the String URL or null if this
+ * redirect does not exist
+ */
+exports.getUrlForRedirect = function(redirect) {
+  return new Promise(function(resolve) {
+    chromeStorage.get(redirect)
+    .then(keyValue => {
+      var url = keyValue[redirect];
+      if (url) {
+        resolve(url);
+      } else {
+        resolve(null);
+      }
+    });
+  });
+};
+
+/**
+ * Resolves true if a redirect exists with this value, else resolves false.
+ *
+ * @param {String} redirect a redirect, eg gmail
+ *
+ * @return {Promise} Promise that resolves with true or false
+ */
+exports.redirectExists = function(redirect) {
+  return new Promise(function(resolve) {
+    exports.getUrlForRedirect(redirect)
+    .then(url => {
+      if (url) {
+        resolve(true);
+      } else {
+        resolve(false);
+      }
     });
   });
 };
@@ -508,6 +602,6 @@ function upgrade() {
 
 // Every time this script is loaded, attempt an upgrade.
 // TODO: move this to a more appropriate place
-upgrade();
+// upgrade();
 
 },{"./chrome-apis/storage":1,"./chrome-apis/tabs":2}]},{},[4]);

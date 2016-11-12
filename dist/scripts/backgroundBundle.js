@@ -1,4 +1,71 @@
 require=(function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+/* global chrome */
+'use strict';
+
+var bgModule = require('./backround-module');
+
+// This event is fired each time the user updates the text in the omnibox,
+// as long as the extension's keyword mode is still active.
+chrome.omnibox.onInputChanged.addListener(bgModule.omniboxOnChangedListener);
+
+// This event is fired when the user accepts the input in the omnibox.
+// It opens the redirect that the user-given key maps to. 
+chrome.omnibox.onInputEntered.addListener(
+  bgModule.omniboxOnInputEnteredListener
+);
+
+},{"./backround-module":2}],2:[function(require,module,exports){
+'use strict';
+
+var common = require('./common');
+var omnibox = require('./chrome-apis/omnibox');
+var tabs = require('./chrome-apis/tabs');
+
+exports.omniboxOnChangedListener = function(text) {
+  return new Promise(function(resolve) {
+    common.getUrlForRedirect(text)
+    .then(url => {
+      if (url) {
+        // We found something.
+        omnibox.setDefaultSuggestion(
+          { 'description' : 'Redirecting you to: ' + url }
+        );
+      } else {
+        // Nothing was found.
+        omnibox.setDefaultSuggestion(
+          { 'description' : 'No redirect found.' }
+        );
+      }
+      resolve();
+    });
+  });
+};
+
+exports.omniboxOnInputEnteredListener = function(text) {
+  return new Promise(function(resolve) {
+    common.getUrlForRedirect(text)
+    .then(url => {
+      if (url) {
+        tabs.update({ url: url });
+      }
+      resolve();
+    });
+  });
+};
+
+},{"./chrome-apis/omnibox":3,"./chrome-apis/tabs":5,"./common":"common"}],3:[function(require,module,exports){
+/* global chrome */
+'use strict';
+
+/**
+ * Wrappers around the chrome.omnibox APIs.
+ */
+
+exports.setDefaultSuggestion = function(suggestionObj) {
+  chrome.omnibox.setDefaultSuggestion(suggestionObj);
+};
+
+},{}],4:[function(require,module,exports){
 /* globals Promise, chrome */
 'use strict';
 
@@ -101,7 +168,7 @@ exports.clear = function(useSync) {
   });
 };
 
-},{}],2:[function(require,module,exports){
+},{}],5:[function(require,module,exports){
 /* global chrome */
 'use strict';
 
@@ -373,4 +440,4 @@ function upgrade() {
 // TODO: move this to a more appropriate place
 // upgrade();
 
-},{"./chrome-apis/storage":1,"./chrome-apis/tabs":2}]},{},[]);
+},{"./chrome-apis/storage":4,"./chrome-apis/tabs":5}]},{},[1]);

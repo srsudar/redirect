@@ -135,6 +135,48 @@ exports.getUrlOfCurrentTab = function () {
 };
 
 /**
+ * Gets the URL matching the given redirect.
+ *
+ * @param {String} redirect
+ *
+ * @return {Promise} Promise that resolves with the String URL or null if this
+ * redirect does not exist
+ */
+exports.getUrlForRedirect = function(redirect) {
+  return new Promise(function(resolve) {
+    chromeStorage.get(redirect)
+    .then(keyValue => {
+      var url = keyValue[redirect];
+      if (url) {
+        resolve(url);
+      } else {
+        resolve(null);
+      }
+    });
+  });
+};
+
+/**
+ * Resolves true if a redirect exists with this value, else resolves false.
+ *
+ * @param {String} redirect a redirect, eg gmail
+ *
+ * @return {Promise} Promise that resolves with true or false
+ */
+exports.redirectExists = function(redirect) {
+  return new Promise(function(resolve) {
+    exports.getUrlForRedirect(redirect)
+    .then(url => {
+      if (url) {
+        resolve(true);
+      } else {
+        resolve(false);
+      }
+    });
+  });
+};
+
+/**
  * Get any redirects that exist for the given URL. Resolves an empty array if
  * no redirects exist.
  *

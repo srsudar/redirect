@@ -282,3 +282,78 @@ tape('getExistingRedirects returns all for multiple', function(t) {
     t.end();
   });
 });
+
+tape('getUrlForRedirect resolves url if present', function(t) {
+  var redirect = 'gmail';
+  var getResult = {};
+  var url = 'gmail.com';
+  getResult[redirect] = url;
+
+  var getStub = sinon.stub().resolves(getResult);
+
+  common = proxyquire(
+    '../../app/scripts/common',
+    {
+      './chrome-apis/storage': {
+        get: getStub
+      }
+    }
+  );
+
+  common.getUrlForRedirect(redirect)
+  .then(actual => {
+    t.equal(actual, url);
+    t.end();
+  });
+});
+
+tape('getUrlForRedirect resolves null if not present', function(t) {
+  var redirect = 'gmail';
+  var getResult = {};
+
+  var getStub = sinon.stub().resolves(getResult);
+
+  common = proxyquire(
+    '../../app/scripts/common',
+    {
+      './chrome-apis/storage': {
+        get: getStub
+      }
+    }
+  );
+
+  common.getUrlForRedirect(redirect)
+  .then(actual => {
+    t.equal(actual, null);
+    t.end();
+  });
+});
+
+tape('redirectExists returns true', function(t) {
+  var redirect = 'gmail';
+  var url = 'gmail.com';
+
+  var getUrlForRedirectStub = sinon.stub().resolves(url);
+  common.getUrlForRedirect = getUrlForRedirectStub;
+
+  common.redirectExists(redirect)
+  .then(actual => {
+    t.true(actual);
+    resetCommon();
+    t.end();
+  });
+});
+
+tape('redirectExists returns false', function(t) {
+  var redirect = 'gmail';
+
+  var getUrlForRedirectStub = sinon.stub().resolves(null);
+  common.getUrlForRedirect = getUrlForRedirectStub;
+
+  common.redirectExists(redirect)
+  .then(actual => {
+    t.false(actual);
+    resetCommon();
+    t.end();
+  });
+});

@@ -3,9 +3,9 @@
 var common = require('./common');
 var tabs = require('./chrome-apis/tabs');
 
-var MSG_SAVE_FAIL = 'Your direct was not saved: ';
-var MSG_SAVE_SUCCESS = 'Your redirect was created!<br>';
-var MSG_BAD_KEY = 'Redirects must be alphanumeric.';
+exports.MSG_SAVE_FAIL = 'Your direct was not saved: ';
+exports.MSG_SAVE_SUCCESS = 'Your redirect was created!<br>';
+exports.MSG_BAD_KEY = 'Redirects must be alphanumeric.';
 
 /**
  * The ID of the element that into which the user inputs a direct label. This
@@ -23,25 +23,75 @@ exports.getRedirectLabelFromUi = function() {
     return result;
 };
 
+exports.alertRedirectExists = function(redirect) {
+  // TODO
+};
+
 /**
- * Validates that the redirect can be saved and saves the redirect, updating
- * the UI with the appropriate message.
+ * Validates that the redirect is not illegal and saves the redirect. Unlike
+ * validateAndSaveRedirect(), this function saves even if an existing redirect
+ * will be overwritten.
  *
  * @param {String} redirect
+ * @param {String} url
+ *
+ * @return {Promise} Promise that resolves when the operation completes
  */
-exports.validateAndSaveRedirect = function(redirect) {
-    if (common.keyExists(redirect)) { 
-      // TODO: somehthing here?    
-    } else {
-      if (!common.isValidKey(redirect)) {
-        exports.alertIsInvalidKey();
-        return;
-      }
-      common.getUrlOfCurrentTab()
-      .then(url => {
-        common.saveRedirect(redirect, url);
-      });
+exports.saveRedirectWithOverwrite = function(redirect, url) {
+  return new Promise(function(resolve) {
+    if (!common.isValidKey(redirect)) {
+      exports.alertIsInvalidKey();
+      resolve();
+      return;
     }
+    // Since we're allowing overwrites, just save it straight away.
+    common.saveRedirect(redirect, url)
+    .then(() => {
+      resolve();
+    });
+  });
+};
+
+/**
+ * Validates that the redirect can be saved and saves the redirect, updating
+ * the UI with the appropriate message. This is the main entrypoint into saving
+ * a redirect. It essentially follows this logic:
+ * 
+ * Is this a valid key? If not, alert saying invalid key.
+ *
+ * Does a redirect exist for this key? If so, alert saying are you sure you
+ * want to overwrite?
+ *
+ * If the previous two checks pass, save the redirect.
+ *
+ * @param {String} redirect
+ * @param {String} url
+ *
+ * @return {Promise} Promise that resolves when the method completes
+ */
+exports.validateAndSaveRedirect = function(redirect, url) {
+  return new Promise(function(resolve) {
+    // Is this a valid redirect?
+    if (!common.isValidKey(redirect)) {
+      exports.alertIsInvalidKey();
+      resolve();
+      return;
+    }
+    // Will this overwrite an existing key?
+    common.redirectExists(redirect)
+    .then(exists => {
+      if (exists) {
+        exports.alertRedirectExists(redirect);
+        resolve();
+        return;
+      } else {
+        return common.saveRedirect(redirect, url);
+      }
+    })
+    .then(() => {
+      resolve();
+    });
+  });
 };
 
 /**
@@ -69,13 +119,13 @@ exports.setMessage = function(msg) {
 };
 
 exports.alertIsInvalidKey = function() {
-  exports.setMessage(MSG_BAD_KEY);
+  exports.setMessage(exports.MSG_BAD_KEY);
 };
 
 exports.setSaveMessageSuccess = function(key, value) {
-  exports.setMessage(MSG_SAVE_SUCCESS + key + ' → ' + value);
+  exports.setMessage(exports.MSG_SAVE_SUCCESS + key + ' → ' + value);
 };
 
 exports.setSaveMessageError = function(error) {
-  exports.setMessage(MSG_SAVE_FAIL + error);
+  exports.setMessage(exports.MSG_SAVE_FAIL + error);
 };
